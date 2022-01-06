@@ -8,7 +8,7 @@ void print(std::string s){
 int main(){
 	server s;
 	s.autoUpdate = true;
-	auto serv = service::createService<std::string>("talk", print);
+	servicePtr serv = service::createService<std::string>("talk", print);
 	s.addService(serv);
 	s.start(9999);
 	while(true){

@@ -9,7 +9,7 @@ void print(std::string s){
 int main(){
 	client c;
 	c.autoUpdate = true;
-	auto serve = service::createService<std::string>("talk", print);
+	servicePtr serve = service::createService<std::string>("talk", print);
 	c.addService(serve);
 	c.connect("localhost", 9999);
 	while(true){

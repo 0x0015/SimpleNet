@@ -76,3 +76,5 @@ public:
 
 
 };
+
+typedef std::shared_ptr<service> servicePtr;
