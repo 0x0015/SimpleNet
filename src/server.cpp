@@ -53,7 +53,7 @@ void server::update(){
 void server::autoUpdateFunc(){
 	while(open){
 		update();
-		SDL_Delay(100);
+		SDL_Delay(autoUpdateTime);
 	}
 }
 
@@ -126,7 +126,7 @@ void server::threadFunc(unsigned int port){
 	}
 }
 
-int server::numOfConnections(){
+unsigned int server::numOfConnections(){
 	C_mutex.lock();
 	return(clients.size());
 	C_mutex.unlock();
@@ -148,6 +148,12 @@ server::~server(){
 	if(open){
 		stop();
 	}
+	if(workingThread.joinable()){
+		workingThread.join();
+	}
+	if(autoUpdateThread.joinable()){
+		autoUpdateThread.join();
+	}
 }
 
 void connection::open(){
@@ -166,8 +172,14 @@ void connection::readThreadFunc(){
 		int len = SDLNet_TCP_Recv(client, buffer, 1024);
 		if(!len){
 			std::cout<<"Failed to get length of message: "<<SDLNet_GetError()<<std::endl;
+			disconnectErrors++;
+			if(disconnectErrors>=host->errorsBeforeDisconnect){
+				errorDisconnectThread = std::thread(&connection::disconnect, this);
+				break;
+			}
 			continue;
 		}
+		disconnectErrors = 0;
 		//std::cout<<"Received message len: "<<len<<std::endl;
 		//for(int i=0;i<len;i++){
 		//	std::cout<<buffer[i];
@@ -199,11 +211,21 @@ void connection::writeThreadFunc(){
 }
 
 void connection::disconnect(){
-	SDLNet_TCP_Close(client);
+	if(!connected){
+		return;
+	}
 	connected = false;
-	readThread.join();
+	SDLNet_TCP_Close(client);
+	if(readThread.joinable()){
+		readThread.join();
+	}
 	newMessages.release();
-	writeThread.join();
+	if(writeThread.joinable()){
+		writeThread.join();
+	}
+	if(errorDisconnectThread.joinable() && errorDisconnectThread.get_id() != std::this_thread::get_id()){
+		errorDisconnectThread.join();
+	}
 }
 
 void connection::sendMessage(std::shared_ptr<message> m){
@@ -223,5 +245,15 @@ connection::connection(){
 connection::~connection(){
 	if(connected){
 		disconnect();
+	}
+	if(readThread.joinable()){
+		readThread.join();
+	}
+	newMessages.release();//to give this thread the highest chance of being able to join
+	if(writeThread.joinable()){
+		writeThread.join();
+	}
+	if(errorDisconnectThread.joinable()){
+		errorDisconnectThread.join();
 	}
 }

@@ -60,9 +60,17 @@ void client::connect(std::string ip, unsigned int port){
 }
 
 void client::disconnect(){
+	if(!open){
+		return;
+	}
 	open = false;
 	newMessages.release();
-	workingThread.join();
+	if(workingThread.joinable()){
+		workingThread.join();
+	}
+	if(errorDisconnectThread.joinable() && errorDisconnectThread.get_id() != std::this_thread::get_id()){
+		errorDisconnectThread.join();
+	}
 }
 
 void client::threadFunc(std::string ip, unsigned int port){
@@ -102,9 +110,15 @@ void client::readThreadFunc(){
 		char buffer[1024];
 		int len = SDLNet_TCP_Recv(tcpsock, buffer, 1024);
 		if(!len){
-			std::cout<<"Failed to get length of message"<<std::endl;
+			std::cout<<"Failed to get length of message(len = "<<len<<")"<<std::endl;
+			disconnectErrors++;
+			if(disconnectErrors>=errorsBeforeDisconnect){
+				errorDisconnectThread = std::thread(&client::disconnect, this);
+				break;
+			}
 			continue;
 		}
+		disconnectErrors = 0;
 		//std::cout<<"Received message len: "<<len<<std::endl;
 		//for(int i=0;i<len;i++){
 		//	std::cout<<buffer[i];
@@ -147,16 +161,31 @@ void client::update(){
 void client::autoUpdateFunc(){
 	while(open){
 		update();
-		SDL_Delay(100);
+		SDL_Delay(autoUpdateTime);
 	}
 }
 
 client::client(){
-
 }
 
 client::~client(){
 	if(open){
 		disconnect();
+	}
+	if(workingThread.joinable()){
+		workingThread.join();
+	}
+	if(readThread.joinable()){
+		readThread.join();
+	}
+	newMessages.release();//just to make sure that writeThread isn't stuck
+	if(writeThread.joinable()){
+		writeThread.join();
+	}
+	if(autoUpdateThread.joinable()){
+		autoUpdateThread.join();
+	}
+	if(errorDisconnectThread.joinable()){
+		errorDisconnectThread.join();
 	}
 }

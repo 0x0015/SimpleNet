@@ -14,6 +14,7 @@ class server;
 
 class connection{
 public:
+	unsigned int disconnectErrors = 0;
 	TCPsocket client;
 	IPaddress* clientip;
 	server* host;
@@ -24,6 +25,7 @@ public:
 	std::mutex iM_mutex;
 	std::thread readThread;
 	std::thread writeThread;
+	std::thread errorDisconnectThread;
 	void sendMessage(std::shared_ptr<message> m);
 	bool connected = false;
 	void readThreadFunc();
@@ -37,10 +39,12 @@ public:
 class server : public cs_base{
 public:
 	void update();
+	unsigned int errorsBeforeDisconnect = 10;
+	unsigned int autoUpdateTime = 100;
 	bool autoUpdate = false;
 	void start(unsigned int port);
 	void stop();
-	int numOfConnections();
+	unsigned int numOfConnections();
 	void sendMessage(unsigned int connectionNumber, std::shared_ptr<message> m);
 	std::vector<std::shared_ptr<connection>> clients;
 	server();

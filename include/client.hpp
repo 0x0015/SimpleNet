@@ -14,6 +14,8 @@ class message;
 class client : public cs_base{
 public:
 	void update();
+	unsigned int errorsBeforeDisconnect = 10;
+	unsigned int autoUpdateTime = 100;
 	bool autoUpdate = false;
 	void sendRaw(const char* data, unsigned int len = 0);
 	void sendMessage(std::shared_ptr<message> m);
@@ -23,6 +25,7 @@ public:
 	client();
 	~client();
 private:
+	unsigned int disconnectErrors = 0;
 	IPaddress ip;
 	TCPsocket tcpsock;
 	std::vector<std::shared_ptr<message>> outgoingMessages;
@@ -42,4 +45,5 @@ private:
 	void readThreadFunc();
 	std::thread autoUpdateThread;
 	void autoUpdateFunc();
+	std::thread errorDisconnectThread;
 };
